@@ -596,16 +596,16 @@ summary(Hannum1)
 summary(Hannum2)
 summary(Pheno1)
 summary(Pheno2)
-summary(YingAdaptAge1)
-summary(YingAdaptAge2)
-summary(YingDamAge1)
-summary(YingDamAge2)
-summary(Dunedin1)
-summary(Dunedin2)
-summary(Grim1)
-summary(Grim2)
-summary(DNAmTL1)
-summary(DNAmTL2)
+summary(YingAdaptAge1) ## both exposure groups negatively associated
+summary(YingAdaptAge2) ## both exposure groups negatively associated
+summary(YingDamAge1) ## both exposure groups positively associated
+summary(YingDamAge2) ## both groups positively associated
+summary(Dunedin1) ## doubly exposed groups positively associated
+summary(Dunedin2) ## no groups associated
+summary(Grim1)## doubly exposed positively associated
+summary(Grim2) ## no groups associated
+summary(DNAmTL1) # no groups associated
+summary(DNAmTL2) #no groups associated
 
 
 
@@ -613,30 +613,197 @@ summary(DNAmTL2)
  # Take a look at model performance (not great)
 library(performance)
 
-check_model(Hannum1)
-check_model(Hannum2)
-check_model(Horvath1)
-check_model(Horvath2)
-check_model(Pheno1)
-check_model(Pheno2)
 check_model(YingAdaptAge1)
 check_model(YingAdaptAge2)
 check_model(YingDamAge1)
 check_model(YingDamAge2)
+check_model(Grim1)
+check_model(Dunedin1)
+
+
+##Diagnostic plots##
+
+influence_values <- influence.measures(YingDamAge2)
+
+# Extract Cook's distance values
+cook_values <- influence_values$infmat[, "CookD"]
+
+# Calculate threshold for Cook's distance
+threshold <- 4/91
+
+# Identify influential observations
+influential_points <- which(abs(cook_values) > threshold)
+
+# Print indices of influential points
+print(influential_points)
+residuals <- residuals(YingDamAge1)
+
+# Create a QQ plot of the residuals
+qqnorm(residuals, main= "YingDamAge1 QQ plot")
+qqline(residuals)
+
+vif(YingDamAge1)
+
+fitted.values <- fitted(YingDamAge1)
+
+# Create a plot of residuals vs. fitted values
+plot(fitted.values, residuals,
+     xlab = "Fitted values",
+     ylab = "Residuals",
+     main = "Residuals vs. Fitted Values YingDamage1")
+abline(h = 0, col = "red")  # Add a horizontal line at y = 0
+
+
+residuals <- residuals(YingDamAge2)
+
+# Create a QQ plot of the residuals
+qqnorm(residuals, main= "YingDamAge1 QQ plot")
+qqline(residuals)
+
+vif(YingDamAge1)
+
+fitted.values <- fitted(YingDamAge2)
+
+# Create a plot of residuals vs. fitted values
+plot(fitted.values, residuals,
+     xlab = "Fitted values",
+     ylab = "Residuals",
+     main = "Residuals vs. Fitted Values YingDamage2")
+abline(h = 0, col = "red")  # Add a horizontal line at y = 0
+
+
+residuals <- residuals(YingAdaptAge1)
+
+# Create a QQ plot of the residuals
+qqnorm(residuals, main= "YingAdaptAge1 QQ plot")
+qqline(residuals)
+
+vif(YingAdaptAge1)
+
+fitted.values <- fitted(YingAdaptAge1)
+
+# Create a plot of residuals vs. fitted values
+plot(fitted.values, residuals,
+     xlab = "Fitted values",
+     ylab = "Residuals",
+     main = "Residuals vs. Fitted Values YingAdaptAge1")
+abline(h = 0, col = "red")  # Add a horizontal line at y = 0
+
+
+residuals <- residuals(YingAdaptAge2)
+
+# Create a QQ plot of the residuals
+qqnorm(residuals, main= "YingAdaptAge2 QQ plot")
+qqline(residuals)
+
+vif(YingAdaptAge2)
+
+fitted.values <- fitted(YingAdaptAge2)
+
+# Create a plot of residuals vs. fitted values
+plot(fitted.values, residuals,
+     xlab = "Fitted values",
+     ylab = "Residuals",
+     main = "Residuals vs. Fitted Values YingAdaptAge1")
+abline(h = 0, col = "red")  # Add a horizontal line at y = 0
+
+residuals <- residuals(Dunedin1)
+
+# Create a QQ plot of the residuals
+qqnorm(residuals, main= "Dunedin Model1 QQ plot")
+qqline(residuals)
+
+vif(Dunedin1)
+
+fitted.values <- fitted(Dunedin1)
+
+# Create a plot of residuals vs. fitted values
+plot(fitted.values, residuals,
+     xlab = "Fitted values",
+     ylab = "Residuals",
+     main = "Residuals vs. Fitted Values Dunedin Model 1")
+abline(h = 0, col = "red")  # Add a horizontal line at y = 0
+
+residuals <- residuals(Dunedin2)
+
+# Create a QQ plot of the residuals
+qqnorm(residuals, main= "Dunedin Model2 QQ plot")
+qqline(residuals)
+
+vif(Dunedin2)
+
+fitted.values <- fitted(Dunedin2)
+
+# Create a plot of residuals vs. fitted values
+plot(fitted.values, residuals,
+     xlab = "Fitted values",
+     ylab = "Residuals",
+     main = "Residuals vs. Fitted Values Dunedin Model 2")
+abline(h = 0, col = "red")  # Add a horizontal line at y = 0
+
+
+residuals <- residuals(Grim1)
+
+# Create a QQ plot of the residuals
+qqnorm(residuals, main= "Grim Model 1 QQ plot")
+qqline(residuals)
+
+vif(Grim1)
+
+fitted.values <- fitted(Grim1)
+
+# Create a plot of residuals vs. fitted values
+plot(fitted.values, residuals,
+     xlab = "Fitted values",
+     ylab = "Residuals",
+     main = "Residuals vs. Fitted Values Grim Model 1")
+abline(h = 0, col = "red")  # Add a horizontal line at y = 0
+
+
+
+residuals <- residuals(Grim2)
+
+# Create a QQ plot of the residuals
+qqnorm(residuals, main= "Grim Model 2 QQ plot")
+qqline(residuals)
+
+vif(Grim2)
+
+fitted.values <- fitted(Grim2)
+
+# Create a plot of residuals vs. fitted values
+plot(fitted.values, residuals,
+     xlab = "Fitted values",
+     ylab = "Residuals",
+     main = "Residuals vs. Fitted Values Grim Model 2")
+abline(h = 0, col = "red")  # Add a horizontal line at y = 0
+
+
+library(ggfortify)
+autoplot(YingDamAge2, which = 5) + 
+  geom_hline(yintercept = 2*length(coef(YingDamAge2))/n, color = "red", linetype = "dashed") +
+  labs(title = "Leverage Plot",
+       x = "Observation Sequence",
+       y = "Leverage Value",
+       caption = "Red dashed line indicates the threshold (2p/n)") +
+  theme_minimal()
 
 ## save as Word tables ###
 
-  ft1 <- as_flextable(Horvath1)
-  ft2 <- as_flextable(Horvath2)
-  ft3 <- as_flextable(Hannum1)
-  ft4 <- as_flextable(Hannum2)
-  ft5 <- as_flextable(Pheno1)  
-  ft6 <- as_flextable(Pheno2)
-  ft
+  ft1 <- as_flextable(YingDamAge1)
+  ft2 <- as_flextable(YingDamAge2)
+  ft3 <- as_flextable(YingAdaptAge1)
+  ft4 <- as_flextable(YingAdaptAge2)
+  ft5 <- as_flextable(Grim1)
+  ft6 <- as_flextable(Dunedin1)
+  ft7 <- as_flextable(Grim2)  
+  ft8 <- as_flextable(Dunedin2)
+  
   
   save_as_docx(
-    `Horvath Clock Model 1` = ft1, `Horvath Clock Model 2` = ft2,`Hannum Clock Model 1` = ft3, `Hannum Clock Model 2` = ft4,`PhenoAge Clock Model 1` = ft5, `PhenoAge Clock Model 2` = ft6,
-    path ="figures_tables/ClockModelv3.docx")
+    `YingDamAge  Model 1` = ft1, `YingDamAge Model 2` = ft2,`YingAdaptAge Model 1` = ft3, `YingAdaptAge Model 2` = ft4,`DunedinPACE Model 1` = ft5, `GrimAge Model 1` = ft6,
+    `DunedinPACE Model 2` = ft7, `GrimAge Model 2` = ft8,
+    path ="figures_tables/ClockModelv4.docx")
 
   
   ##sensitivity analysis for Hannum outliers

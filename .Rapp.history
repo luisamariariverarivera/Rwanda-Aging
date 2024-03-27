@@ -1,0 +1,73 @@
+setwd("~/Documents/Rwanda-Aging")
+setwd("~/Documents/Rwanda-Aging")
+> d <- read.csv(data_raw/d.csv)
+> d <- read.csv("data_raw/d.csv")
+head(d)
+d <- read.csv("data_raw/d.csv")
+setwd("~/Documents/Rwanda-Aging")
+d <- read.csv("data_raw/d.csv")
+d <- read.csv(data_raw/d.csv)
+d <- read.csv(data_raw/d.csv)
+d <- read.csv(~data_raw/d.csv)
+d <- read.csv("~/data_raw/d.csv")
+head(d)
+d <- read.csv("data_raw/d.csv")
+library(tidyverse)#
+library(tidyr)#
+library(table1)#
+library(sesame)#
+library(sesameData)#
+library(data.table)#
+library(GenomicRanges)#
+library(performance)#
+library(dplyr)#
+library(flextable)
+d <- read.csv("data_raw/d.csv")
+head(d)
+Horvath1 <- lm(residuals_Horvath ~ group_factor + bio_sex +PC1, data = d)#
+Horvath2 <- lm(residuals_Horvath ~ ace_total + group_factor + bio_sex+ PC1, data = d)#
+Hannum1 <- lm(residuals_Hannum ~ group_factor + bio_sex+ PC1, data = d)#
+Hannum2 <- lm(residuals_Hannum ~ ace_total + group_factor + bio_sex+PC1, data = d)#
+Pheno1 <- lm(residuals_PhenoAge ~ group_factor + bio_sex+PC1, data = d)#
+Pheno2 <- lm(residuals_PhenoAge ~ ace_total + group_factor + bio_sex+PC1, data = d)#
+YingAdaptAge1 <- lm(residuals_YingAdaptAge~ group_factor + bio_sex+PC1, data = d)#
+YingAdaptAge2 <- lm(residuals_YingAdaptAge ~ ace_total + group_factor + bio_sex+PC1, data = d)#
+#
+YingDamAge1 <- lm(residuals_YingDamAge~ group_factor + bio_sex+PC1, data = d)#
+YingDamAge2 <- lm(residuals_YingDamAge ~ ace_total + group_factor + bio_sex+PC1, data = d)#
+#
+Dunedin1 <- lm(residuals_dunedin~ group_factor + bio_sex+PC1, data = d)#
+Dunedin2 <- lm(residuals_dunedin ~ ace_total + group_factor + bio_sex+PC1, data = d)#
+#
+Grim1 <- lm(grim~ group_factor + bio_sex+PC1, data = d)#
+Grim2 <- lm(grim ~ ace_total + group_factor + bio_sex+PC1, data = d)#
+#
+DNAmTL1 <- lm(DNAmTL~ group_factor + bio_sex+PC1, data = d)#
+DNAmTL2 <- lm(DNAmTL ~ ace_total + group_factor + bio_sex+PC1, data = d)#
+# Print the summary of the model#
+summary(Horvath1)#
+summary(Horvath2)#
+summary(Hannum1)#
+summary(Hannum2)#
+summary(Pheno1)#
+summary(Pheno2)#
+summary(YingAdaptAge1)#
+summary(YingAdaptAge2)#
+summary(YingDamAge1)#
+summary(YingDamAge2)#
+summary(Dunedin1)#
+summary(Dunedin2)#
+summary(Grim1)#
+summary(Grim2)#
+summary(DNAmTL1)#
+summary(DNAmTL2)
+check_model(Hannum1)#
+check_model(Hannum2)#
+check_model(Horvath1)#
+check_model(Horvath2)#
+check_model(Pheno1)#
+check_model(Pheno2)#
+check_model(YingAdaptAge1)#
+check_model(YingAdaptAge2)#
+check_model(YingDamAge1)#
+check_model(YingDamAge2)
