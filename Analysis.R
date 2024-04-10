@@ -1,5 +1,5 @@
 
-install.packages("sesame", "sesameData")
+
 library(tidyverse)
 library(tidyr)
 library(table1)
@@ -47,16 +47,25 @@ d$group <- as.factor(d$group)
 d$exposed <- ifelse(d$group=="Non exposed", 0, 1)
 d$bio_sex <- as.factor(d$bio_sex)
 d$incomecategory <- as.factor(d$incomecategory)
-d$education <- as.factor(d$education)
+d$education <- as.factor(d$education) 
+
+table(d$education,d$group_factor)
+d <- d %>%
+  mutate(factor_education = case_when(
+    education %in% c("adv diploma", "bachelors") ~ "university level",
+    education %in% c("primary", "some primary") ~ "primary level",
+    education %in% c("secondary", "some secondary", "vocation") ~ "secondary level",
+    TRUE ~ as.character(education)
+  ))
+
 d$ptsd <- as.factor(d$ptsd)
 d$group_factor<- factor(d$group, levels = c("Non exposed", "Exposed to genocide", "Exposed to genocide and rape"))
 # Rename levels of the group_factor variable
 d$group_factor <- factor(d$group_factor, 
-                         levels = c("Non exposed", "Exposed to genocide", "Exposed to genocide and rape"),
-                         labels = c("Control", "Singly Exposed", "Doubly Exposed"))
-
-
-
+                         levels = c("Exposed to genocide and rape","Exposed to genocide", "Non exposed"),
+                         labels = c("Double Exposed", "Single Exposed", "Control"))
+d$GrimAgeAccel=d$grim
+d$DunedinPACE = d$dunedin
 ## Make immune cell principle components and calculate MLR and NLR
 
 d$mlr <- d$Mono/(d$Bmem+d$Bnv+d$CD4mem+d$CD4nv+d$CD8mem+d$CD8nv+d$NK+d$Treg) ## monocyte-lymphocyte ratio
@@ -113,7 +122,6 @@ write.csv(d,"data_raw/d.csv")
 
 d <- read.csv("data_raw/d.csv")
 
-view(d$group_factor)
 
 
 ########### Descriptive Plots ###########
@@ -121,12 +129,12 @@ view(d$group_factor)
 # Create Table 1 Descriptive Statistics
 library(table1)
 
-t1 <- table1(~ factor(bio_sex) + factor(education) + factor(incomecategory) +factor(ptsd) +ace_total | group_factor, data=d)
+t1 <- table1(~ factor(bio_sex) + factor(factor_education) + factor(incomecategory) +ace_total | group_factor, data=d)
 
 ft1 <- t1flex(t1) %>% 
   save_as_docx(path="figures_tables/table1.docx")
 
-t2 <- table1(~ realAge+ mAge_Hovath + mAge_Hannum + PhenoAge + dunedin + grim + YingDamAge + YingAdaptAge | group_factor, data=d)
+t2 <- table1(~ realAge+ mAge_Hovath + mAge_Hannum + PhenoAge + DunedinPACE + GrimAgeAccel + YingDamAge + YingAdaptAge | group_factor, data=d)
 
 table2 <- t1flex(t2) %>% 
   save_as_docx(path="figures_tables/clock_age_table.docx")
@@ -344,8 +352,10 @@ nlrplot
 
 ## Combine plot for all clocks by group ##########
 d_clock_long <- d %>% 
-  pivot_longer(cols = c("residuals_PhenoAge", "residuals_Hannum", "residuals_Horvath"), names_to = "clock", values_to = "age_residual") %>% 
-  mutate(clock = sapply( str_split(clock, "_"), "[", 2 ))
+  pivot_longer(cols = c("residuals_PhenoAge", "residuals_Hannum", "residuals_Horvath", "residuals_YingDamAge", "residuals_YingAdaptAge", "GrimAgeAccel"), names_to = "clock", values_to = "age_residual") %>% 
+  mutate(clock = ifelse(clock %in% c("GrimAgeAccel"), clock, sapply( str_split(clock, "_"), "[", 2 )))
+
+
 
 all_clock_plot <- ggplot(d_clock_long, aes(x = group_factor, y = age_residual, fill = group_factor)) +
   facet_wrap(~clock) +
@@ -357,32 +367,13 @@ all_clock_plot <- ggplot(d_clock_long, aes(x = group_factor, y = age_residual, f
   theme_minimal(18) +
   ## geom_text(aes(label = studyid), position = position_jitter(width = 0.2, height = 0), vjust = -0.7, size = 3)+ ## de-comment if you want to see studyids labelled
   theme(legend.title = element_blank(),
-        axis.text.x = element_text(angle = 45, hjust = 1))
+        axis.text.x = element_blank())
 
 all_clock_plot
 
 
-d_clock_long2 <- d %>% 
-  pivot_longer(cols = c( "residuals_YingDamAge", "residuals_YingAdaptAge"), names_to = "clock", values_to = "age_residual") %>% 
-  mutate(clock = sapply( str_split(clock, "_"), "[", 2 ))
-
-all_clock_plot2 <- ggplot(d_clock_long2, aes(x = group_factor, y = age_residual, fill = group_factor)) +
-  facet_wrap(~clock) +
-  geom_violin(trim = FALSE, color = NA, alpha = 0.7) +
-  geom_jitter(width = 0.2, size = 2, alpha = 0.5) +
-  scale_fill_viridis_d() +
-  scale_color_viridis_d() +
-  labs(x = "", y = "Age Residual") +
-  theme_minimal(18) +
-  ## geom_text(aes(label = studyid), position = position_jitter(width = 0.2, height = 0), vjust = -0.7, size = 3)+ ## de-comment if you want to see studyids labelled
-  theme(legend.title = element_blank(),
-        axis.text.x = element_text(angle = 45, hjust = 1))
-
-all_clock_plot2
-
 d_clock_long3 <- d %>% 
-  pivot_longer(cols = c("residuals_dunedin",), names_to = "clock", values_to = "age_residual") %>% 
-  mutate(clock = sapply( str_split(clock, "_"), "[", 2 ))
+  pivot_longer(cols = c("DunedinPACE",), names_to = "clock", values_to = "age_residual") 
 
 all_clock_plot3 <- ggplot(d_clock_long3, aes(x = group_factor, y = age_residual, fill = group_factor)) +
   facet_wrap(~clock) +
@@ -390,48 +381,14 @@ all_clock_plot3 <- ggplot(d_clock_long3, aes(x = group_factor, y = age_residual,
   geom_jitter(width = 0.2, size = 2, alpha = 0.5) +
   scale_fill_viridis_d() +
   scale_color_viridis_d() +
-  labs(x = "", y = "Age Residual") +
+  labs(x = "", y = "Pace of aging") +
   theme_minimal(18) +
   ## geom_text(aes(label = studyid), position = position_jitter(width = 0.2, height = 0), vjust = -0.7, size = 3)+ ## de-comment if you want to see studyids labelled
   theme(legend.title = element_blank(),
-        axis.text.x = element_text(angle = 45, hjust = 1))
+        axis.text.x = element_blank())
 
 all_clock_plot3
 
-d_clock_long4 <- d %>% 
-  pivot_longer(cols = c("grim",), names_to = "clock", values_to = "age_residual") 
-
-all_clock_plot4 <- ggplot(d_clock_long4, aes(x = group_factor, y = age_residual, fill = group_factor)) +
-  facet_wrap(~clock) +
-  geom_violin(trim = FALSE, color = NA, alpha = 0.7) +
-  geom_jitter(width = 0.2, size = 2, alpha = 0.5) +
-  scale_fill_viridis_d() +
-  scale_color_viridis_d() +
-  labs(x = "", y = "Age Residual") +
-  theme_minimal(18) +
-  ## geom_text(aes(label = studyid), position = position_jitter(width = 0.2, height = 0), vjust = -0.7, size = 3)+ ## de-comment if you want to see studyids labelled
-  theme(legend.title = element_blank(),
-        axis.text.x = element_text(angle = 45, hjust = 1))
-
-all_clock_plot4
-
-
-d_clock_long5 <- d %>% 
-  pivot_longer(cols = c("DNAmTL",), names_to = "clock", values_to = "DNAm_telomere_length") 
-
-all_clock_plot5 <- ggplot(d_clock_long5, aes(x = group_factor, y = DNAm_telomere_length, fill = group_factor)) +
-  facet_wrap(~clock) +
-  geom_violin(trim = FALSE, color = NA, alpha = 0.7) +
-  geom_jitter(width = 0.2, size = 2, alpha = 0.5) +
-  scale_fill_viridis_d() +
-  scale_color_viridis_d() +
-  labs(x = "", y = "DNAm Telomere Length") +
-  theme_minimal(18) +
-  ## geom_text(aes(label = studyid), position = position_jitter(width = 0.2, height = 0), vjust = -0.7, size = 3)+ ## de-comment if you want to see studyids labelled
-  theme(legend.title = element_blank(),
-        axis.text.x = element_text(angle = 45, hjust = 1))
-
-all_clock_plot5
 
 ### Epigenetic age prediction overlapping density plot ######
 
@@ -443,17 +400,17 @@ sd(d$realAge)
 
 clock_density <- ggplot(d, aes(x = mAge_Hovath, fill = "Horvath Clock")) +
   geom_density(alpha = 0.5) +
-  geom_density(aes(x = mAge_Hannum, fill = "Hannum Clock"), alpha = 0.5) +
-  geom_density(aes(x = PhenoAge, fill = "PhenoAge Clock"), alpha = 0.5) +
-  geom_density(aes(x = YingAdaptAge, fill = "Adaptive Age Clock"), alpha = 0.5) +
-  geom_density(aes(x = YingDamAge, fill = "Damage Age Clock"), alpha = 0.5) +
+  geom_density(aes(x = mAge_Hannum, fill = "Hannum"), alpha = 0.5) +
+  geom_density(aes(x = PhenoAge, fill = "PhenoAge"), alpha = 0.5) +
+  geom_density(aes(x = YingAdaptAge, fill = "YingAdaptAge"), alpha = 0.5) +
+  geom_density(aes(x = YingDamAge, fill = "YingDamAge"), alpha = 0.5) +
   geom_vline(xintercept = mean_realAge, linetype = "solid", color = "black", linewidth = 1) + 
   annotate("text", x = 30, y = 0.2, label = "Chronological Age (mean = 24.12, sd = .10)", vjust = -1, color = "black") + 
   labs(title = "Predicted Epigenetic Ages of Study Participants",
        x = "Predicted Age",
        y = "Density",
        fill = "Clock Type") +
-  scale_fill_manual(values = c("Horvath Clock" = "blue", "Hannum Clock" = "green",  "PhenoAge Clock" = "red", "Causal Age Clock" = "pink", "Adaptive Age Clock" = "cyan", "Damage Age Clock" = "purple" )) +
+  scale_fill_manual(values = c("Horvath" = "blue", "Hannum" = "green",  "PhenoAge" = "red", "YingAdaptAge" = "cyan", "YingDamAge" = "purple" )) +
   theme_minimal()
 
 clock_density
@@ -461,8 +418,8 @@ clock_density
 
 #### Pairs plot for clock correlations with each other 
 library(GGally)
-clocks <- data.frame(Hannum = d$mAge_Hannum, Horvath = d$mAge_Hovath, PhenoAge = d$PhenoAge, AdaptiveAge = d$YingAdaptAge, DamageAge = d$YingDamAge, GrimAge =d$grim, DunedinPace=d$dunedin, DNAmTL = d$DNAmTL )  
-ggpairs(clocks, title="Correlations between Predicted Ages of Epigenetic Clocks") 
+clocks <- data.frame(Hannum = d$mAge_Hannum, Horvath = d$mAge_Hovath, PhenoAge = d$PhenoAge, YingAdaptAge = d$YingAdaptAge, YingDamAge = d$YingDamAge, GrimAgeAccel =d$grim, DunedinPACE=d$dunedin)  
+ggpairs(clocks, title="Correlations between  Epigenetic Clocks") 
 
 round(cor(clocks), 3)
 
@@ -561,6 +518,11 @@ round(cor(clocks), 3)
 
 ## Epigenetic aging by group linear models#######################
 
+##reorder factor so control is the reference
+d$group_factor <- factor(d$group, 
+                         levels = c("Non exposed","Exposed to genocide","Exposed to genocide and rape"),
+                         labels = c("Control", "Single Exposed","Double Exposed"))
+
 Horvath1 <- lm(residuals_Horvath ~ group_factor + bio_sex +PC1, data = d)
 Horvath2 <- lm(residuals_Horvath ~ ace_total + group_factor + bio_sex+ PC1, data = d)
 
@@ -585,8 +547,6 @@ Dunedin2 <- lm(residuals_dunedin ~ ace_total + group_factor + bio_sex+PC1, data 
 Grim1 <- lm(grim~ group_factor + bio_sex+PC1, data = d)
 Grim2 <- lm(grim ~ ace_total + group_factor + bio_sex+PC1, data = d)
 
-DNAmTL1 <- lm(DNAmTL~ group_factor + bio_sex+PC1, data = d)
-DNAmTL2 <- lm(DNAmTL ~ ace_total + group_factor + bio_sex+PC1, data = d)
 
 
 # Print the summary of the model
@@ -596,6 +556,24 @@ summary(Hannum1)
 summary(Hannum2)
 summary(Pheno1)
 summary(Pheno2)
+
+
+
+ft1 <- as_flextable(Horvath1)
+ft2 <- as_flextable(Horvath2)
+ft3 <- as_flextable(Hannum1)
+ft4 <- as_flextable(Hannum2)
+ft5 <- as_flextable(Pheno1)
+ft6 <- as_flextable(Pheno2)
+
+
+
+save_as_docx(
+  `Horvath Model 1` = ft1, `Horvath Model 2` = ft2,`Hannum Model 1` = ft3, `Hannum Model 2` = ft4,`PhenoAge Model 1` = ft5, `PhenoAge Model 2` = ft6,
+  path ="figures_tables/First_gen_clock_models.docx")
+
+
+
 summary(YingAdaptAge1) ## both exposure groups negatively associated
 summary(YingAdaptAge2) ## both exposure groups negatively associated
 summary(YingDamAge1) ## both exposure groups positively associated
@@ -604,10 +582,26 @@ summary(Dunedin1) ## doubly exposed groups positively associated
 summary(Dunedin2) ## no groups associated
 summary(Grim1)## doubly exposed positively associated
 summary(Grim2) ## no groups associated
-summary(DNAmTL1) # no groups associated
-summary(DNAmTL2) #no groups associated
 
 
+
+
+
+
+  ft1 <- as_flextable(YingDamAge1)
+  ft2 <- as_flextable(YingDamAge2)
+  ft3 <- as_flextable(YingAdaptAge1)
+  ft4 <- as_flextable(YingAdaptAge2)
+  ft5 <- as_flextable(Grim1)
+  ft6 <- as_flextable(Grim1)
+  ft7 <- as_flextable(Dunedin1)  
+  ft8 <- as_flextable(Dunedin2)
+  
+  
+  save_as_docx(
+    `YingDamAge  Model 1` = ft1, `YingDamAge Model 2` = ft2,`YingAdaptAge Model 1` = ft3, `YingAdaptAge Model 2` = ft4,`GrimAgeAccel Model 1` = ft5, `GrimAgeAccel Model 2` = ft6,
+    `DunedinPACE Model 1` = ft7, `DunedinPACE Model 2` = ft8,
+    path ="figures_tables/second_gen_models.docx")
 
 
  # Take a look at model performance (not great)
