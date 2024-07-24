@@ -3,128 +3,11 @@
 library(tidyverse)
 library(tidyr)
 library(table1)
-library(sesame)
-library(sesameData)
-library(data.table)
-library(GenomicRanges)
 library(performance)
 library(dplyr)
 library(flextable)
 
-
-##read in phenotypic, dried bloodspot card, immune cell-type, and aging data
-
-d <- read.csv("data_raw/covariates_outcomes.csv")
-e <- read.csv("data_raw/DNAm_real_age.csv")
-f <- read.csv("data_raw/Pred_EPIC.csv")
-g <- read.csv("data_raw/idats/SampleSheet_DBSCard_2023.csv")
-h <- read.csv("data_raw/d_pace.csv")
-i <- read.csv("data_raw/clock_preds_rev.csv")
-
-d <- left_join(d, g, by=c("studyid" = "Study_ID"))
-d <- left_join(d,e, by = c("Sample_Name" = "SampleID"))
-d <- left_join(d, h, by =c("Filename" = "id"))
-d <- left_join(d,f, by= c("Sample_Name" = "Description"))
-d <- left_join(d,i, by= c("Filename" = "id"))
-
-list(d)
-
-
-rm(e,f,g,h,i)
-
-par(mfrow = c(1, 5))
-
-# Plot histograms
-hist(d$YingAdaptAge, main = "YingAdaptAge Histogram")
-hist(d$YingCausAge, main = "YingCausAge Histogram")
-hist(d$YingDamAge, main = "YingDamAge Histogram")
-hist(d$grim, main = "GrimAge Histogram")
-hist(d$dunedin, main = "Dunedin Pace Histogram")
-
-
-##set factors
-d$group <- as.factor(d$group)
-d$exposed <- ifelse(d$group=="Non exposed", 0, 1)
-d$bio_sex <- as.factor(d$bio_sex)
-d$incomecategory <- as.factor(d$incomecategory)
-d$education <- as.factor(d$education) 
-
-table(d$education,d$group_factor)
-d <- d %>%
-  mutate(factor_education = case_when(
-    education %in% c("adv diploma", "bachelors") ~ "university level",
-    education %in% c("primary", "some primary") ~ "primary level",
-    education %in% c("secondary", "some secondary", "vocation") ~ "secondary level",
-    TRUE ~ as.character(education)
-  ))
-
-d$ptsd <- as.factor(d$ptsd)
-d$group_factor<- factor(d$group, levels = c("Non exposed", "Exposed to genocide", "Exposed to genocide and rape"))
-# Rename levels of the group_factor variable
-d$group_factor <- factor(d$group_factor, 
-                         levels = c("Exposed to genocide and rape","Exposed to genocide", "Non exposed"),
-                         labels = c("Double Exposed", "Single Exposed", "Control"))
-d$GrimAgeAccel=d$grim
-d$DunedinPACE = d$dunedin
-## Make immune cell principle components and calculate MLR and NLR
-
-d$mlr <- d$Mono/(d$Bmem+d$Bnv+d$CD4mem+d$CD4nv+d$CD8mem+d$CD8nv+d$NK+d$Treg) ## monocyte-lymphocyte ratio
-d$nlr <- d$Neu/(d$Bmem+d$Bnv+d$CD4mem+d$CD4nv+d$CD8mem+d$CD8nv+d$NK+d$Treg) ## neutrophil-lymphocyte ratio
-
-subset_vars <- d[, c("Bas", "Bmem", "Bnv", "CD4mem", "CD4nv", "CD8nv", "Eos", "Mono", "Neu", "NK", "Treg")]
-
-
-pca <- prcomp(subset_vars)
-
-
-# Principal components
-pcs <- pca$x
-
-# Proportion of variance explained
-var_explained <- pca$sdev^2 / sum(pca$sdev^2)
-
-summary(pca)
-pca$rotation
-
-
-d <- cbind(d, pcs)
-
-
-##calculate and save residuals from predicted vs. chronological age
-
-m1 <- lm(d$mAge_Hannum ~ d$Age)
-d$residuals_Hannum <- residuals(m1)
-m2 <- lm(d$mAge_Hovath ~ d$Age)
-d$residuals_Horvath <- residuals(m2)
-m3 <- lm(d$PhenoAge ~ d$Age)
-d$residuals_PhenoAge <- residuals(m3)
-m4 <- lm(d$YingCausAge ~ d$Age)
-d$residuals_YingCausAge <- residuals(m4)
-m5 <- lm(d$YingAdaptAge ~ d$Age)
-d$residuals_YingAdaptAge <- residuals(m5)
-m6 <- lm(d$YingDamAge ~ d$Age)
-d$residuals_YingDamAge <- residuals(m6)
-m8 <- lm(d$dunedin ~ d$Age)
-d$residuals_dunedin <- residuals(m8)
-
-## take a look at them ##
-plot(d$residuals_Hannum)
-plot(d$residuals_Horvath)
-plot(d$residuals_PhenoAge)
-plot(d$residuals_YingCausAge)
-plot(d$residuals_YingAdaptAge)
-plot(d$residuals_YingDamAge)
-plot(d$residuals_dunedin)
-
-
-
-write.csv(d,"data_raw/d.csv")
-
 d <- read.csv("data_raw/d.csv")
-
-
-
-########### Descriptive Plots ###########
 
 # Create Table 1 Descriptive Statistics
 library(table1)
@@ -138,382 +21,6 @@ t2 <- table1(~ realAge+ mAge_Hovath + mAge_Hannum + PhenoAge + DunedinPACE + Gri
 
 table2 <- t1flex(t2) %>% 
   save_as_docx(path="figures_tables/clock_age_table.docx")
-
-
-#Immune cell pca
-
-res.pca <- prcomp(subset_vars, scale = F)
-fviz_eig(res.pca)
-
-fviz_pca_var(res.pca,
-             col.var = "contrib", # Color by contributions to the PC
-             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
-             title = "Immune Cell Principle Components Analysis",
-             repel = TRUE     # Avoid text overlapping
-)
-
-
-
-
-fviz_pca_ind(res.pca,
-             col.ind = "cos2", # Color by the quality of representation
-             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
-             repel = TRUE     # Avoid text overlapping
-)
-
-#########Descriptive plots ##################
-
-##ACEs by exposure group ###################
-
-shapiro.test(d$ace_total)## quick test to see if they are normally distributed between groups, they're not.
-
-ggplot(d, aes(x = ace_total, fill= "pink")) +
-  geom_density(binwidth = 1, position = "identity", alpha = 0.7) +
-  labs(x = "ace_total", y = "Count") +
-  ggtitle("Histogram of ACEs ") +
-  theme_minimal() +
-  theme(legend.position = "none",
-        panel.border = element_blank())
-
-ggplot(d, aes(x = ace_total, fill = group_factor)) +
-  geom_density(binwidth = 1, position = "identity", alpha = 0.7) +
-  labs(x = "ace_total", y = "Count") +
-  ggtitle("Histogram of ACEs by Group") +
-  facet_wrap(~ group_factor, ncol = 1) +
-  theme_minimal() +
-  theme(legend.position = "none",
-        panel.border = element_blank())
-
-### Violin plots of immune outcomes ########
-
-library(viridisLite)
-
-fill_cols <- viridis(3)
-pc1plot <- ggplot(d, aes(x = group_factor, y = PC1, fill = group_factor)) +
-  geom_violin(trim = FALSE, color = NA, alpha = 0.7) +
-  geom_jitter(width = 0.2, size = 2, alpha = 0.5) +
-  scale_fill_viridis_d() +
-  scale_color_viridis_d() +
-  labs(x = "", y = "PC1") +
-  ggtitle("Violin Plot of PC1 by Group") +
-  theme_minimal(18) +
-  theme(legend.title = element_blank(),
-        axis.text.x = element_text(angle = 45, hjust = 1))  # Rotate x-axis labels at 45 degrees
-
-pc1plot
-
-
-
-mlrplot <- ggplot(d, aes(x = group_factor, y = mlr, fill = group_factor)) +
-  geom_violin(trim = FALSE, color = NA, alpha = 0.7) +
-  geom_jitter(width = 0.2, size = 2, alpha = 0.5) +
-  scale_fill_viridis_d() +
-  scale_color_viridis_d() +
-  labs(x = "", y = "Monocyte-Lymphocyte Ratio") +
-  ggtitle("Violin Plot of Monocyte-Lymphocyte Ratio by Group") +
-  theme_minimal(18) +
-  theme(legend.title = element_blank(),
-        axis.text.x = element_text(angle = 45, hjust = 1))  # Rotate x-axis labels at 45 degrees
-
-mlrplot
-
-nlrplot <- ggplot(d, aes(x = group_factor, y = nlr, fill = group_factor)) +
-  geom_violin(trim = FALSE, color = NA, alpha = 0.7) +
-  geom_jitter(width = 0.2, size = 2, alpha = 0.5) +
-  scale_fill_viridis_d() +
-  scale_color_viridis_d() +
-  labs(x = "", y = "Neutrophil-Lymphocyte Ratio") +
-  ggtitle("Violin Plot of Neutrophil-Lymphocyte Ratio by Group") +
-  theme_minimal(18) +
-  theme(legend.title = element_blank(),
-        axis.text.x = element_text(angle = 45, hjust = 1))  # Rotate x-axis labels at 45 degrees
-
-nlrplot
-
-## Violin Plots of  Epigenetic Aging by Group ########
-# 
-# ##phenoplot <- ggplot(d, aes(x = group_factor, y = residuals_PhenoAge, fill = group_factor)) +
-#   geom_violin(trim = FALSE, color = NA, alpha = 0.7) +
-#   geom_jitter(width = 0.2, size = 2, alpha = 0.5) +
-#   scale_fill_viridis_d() +
-#   scale_color_viridis_d() +
-#   labs(x = "", y = "Age Residual") +
-#   ggtitle("Violin Plot of PhenoAge Residual by Group") +
-#   theme_minimal(18) +
-#   ##geom_text(aes(label = studyid), position = position_jitter(width = 0.2, height = 0), vjust = -0.7, size = 3)+ ## de-comment if you want to see studyids labelled
-#   theme(legend.title = element_blank(),
-#         axis.text.x = element_text(angle = 45, hjust = 1))
-# print(phenoplot)
-# 
-# horvathplot <- ggplot(d, aes(x = group_factor, y = residuals_Horvath, fill = group_factor)) +
-#   geom_violin(trim = FALSE, color = NA, alpha = 0.7) +
-#   geom_jitter(width = 0.2, size = 2, alpha = 0.5) +
-#   scale_fill_viridis_d() +
-#   scale_color_viridis_d() +
-#   labs(x = "", y = "Age Residual") +
-#   ggtitle("Violin Plot of Horvath Residual by Group") +
-#   theme_minimal(18) +
-#   ##geom_text(aes(label = studyid), position = position_jitter(width = 0.2, height = 0), vjust = -0.7, size = 3)+## de-comment if you want to see studyids labelled
-#   theme(legend.title = element_blank(),
-#         axis.text.x = element_text(angle = 45, hjust = 1))
-# print(horvathplot)
-# 
-# 
-# hannumplot <- ggplot(d, aes(x = group, y = residuals_Hannum, fill = group)) +
-#   geom_violin(trim = FALSE, color = NA, alpha = 0.7) +
-#   geom_jitter(width = 0.2, size = 2, alpha = 0.5) +
-#   scale_fill_viridis_d() +
-#   scale_color_viridis_d() +
-#   labs(x = "", y = "Age Residual") +
-#   ggtitle("Violin Plot of Hannum Residual by Group") +
-#   theme_minimal(18) +
-#  ## geom_text(aes(label = studyid), position = position_jitter(width = 0.2, height = 0), vjust = -0.7, size = 3)+## de-comment if you want to see studyids labelled
-#   theme(legend.title = element_blank(),
-#         axis.text.x = element_text(angle = 45, hjust = 1))
-# 
-# print(hannumplot)
-# 
-# dunedinplot <- ggplot(d, aes(x = group, y = dunedin, fill = group)) +
-#   geom_violin(trim = FALSE, color = NA, alpha = 0.7) +
-#   geom_jitter(width = 0.2, size = 2, alpha = 0.5) +
-#   scale_fill_viridis_d() +
-#   scale_color_viridis_d() +
-#   labs(x = "", y = "Dunedin Pace of Aging") +
-#   ggtitle("Violin Plot of Dunedin Pace of Aging by Group") +
-#   theme_minimal(18) +
-#   ## geom_text(aes(label = studyid), position = position_jitter(width = 0.2, height = 0), vjust = -0.7, size = 3)+## de-comment if you want to see studyids labelled
-#   theme(legend.title = element_blank(),
-#         axis.text.x = element_text(angle = 45, hjust = 1))
-# 
-# print(dunedinplot)
-# 
-# 
-# causageplot <- ggplot(d, aes(x = group, y = YingCausAge, fill = group)) +
-#   geom_violin(trim = FALSE, color = NA, alpha = 0.7) +
-#   geom_jitter(width = 0.2, size = 2, alpha = 0.5) +
-#   scale_fill_viridis_d() +
-#   scale_color_viridis_d() +
-#   labs(x = "", y = "Ying Causal Predicted Age") +
-#   ggtitle("Violin Plot of Causal Aging Group") +
-#   theme_minimal(18) +
-#   ## geom_text(aes(label = studyid), position = position_jitter(width = 0.2, height = 0), vjust = -0.7, size = 3)+## de-comment if you want to see studyids labelled
-#   theme(legend.title = element_blank(),
-#         axis.text.x = element_text(angle = 45, hjust = 1))
-# 
-# print(causageplot)
-# 
-# adaptageplot <- ggplot(d, aes(x = group, y = YingAdaptAge, fill = group)) +
-#   geom_violin(trim = FALSE, color = NA, alpha = 0.7) +
-#   geom_jitter(width = 0.2, size = 2, alpha = 0.5) +
-#   scale_fill_viridis_d() +
-#   scale_color_viridis_d() +
-#   labs(x = "", y = "Ying Adaptive Predicted Age") +
-#   ggtitle("Violin Plot of Adaptive Aging Group") +
-#   theme_minimal(18) +
-#   ## geom_text(aes(label = studyid), position = position_jitter(width = 0.2, height = 0), vjust = -0.7, size = 3)+## de-comment if you want to see studyids labelled
-#   theme(legend.title = element_blank(),
-#         axis.text.x = element_text(angle = 45, hjust = 1))
-# 
-# print(adaptageplot)
-# 
-# 
-# damageplot <- ggplot(d, aes(x = group, y = YingDamAge, fill = group)) +
-#   geom_violin(trim = FALSE, color = NA, alpha = 0.7) +
-#   geom_jitter(width = 0.2, size = 2, alpha = 0.5) +
-#   scale_fill_viridis_d() +
-#   scale_color_viridis_d() +
-#   labs(x = "", y = "Ying Damage Predicted Age") +
-#   ggtitle("Violin Plot of Damage Aging Group") +
-#   theme_minimal(18) +
-#   ## geom_text(aes(label = studyid), position = position_jitter(width = 0.2, height = 0), vjust = -0.7, size = 3)+## de-comment if you want to see studyids labelled
-#   theme(legend.title = element_blank(),
-#         axis.text.x = element_text(angle = 45, hjust = 1))
-# 
-# print(damageplot)
-# 
-# 
-# grimplot <- ggplot(d, aes(x = group, y = grim, fill = group)) +
-#   geom_violin(trim = FALSE, color = NA, alpha = 0.7) +
-#   geom_jitter(width = 0.2, size = 2, alpha = 0.5) +
-#   scale_fill_viridis_d() +
-#   scale_color_viridis_d() +
-#   labs(x = "", y = "GrimAge Predicted Age") +
-#   ggtitle("Violin Plot of GrimAge Group") +
-#   theme_minimal(18) +
-#   ## geom_text(aes(label = studyid), position = position_jitter(width = 0.2, height = 0), vjust = -0.7, size = 3)+## de-comment if you want to see studyids labelled
-#   theme(legend.title = element_blank(),
-#         axis.text.x = element_text(angle = 45, hjust = 1))
-# 
-# print(grimplot)##
-# 
-# 
-# 
-
-
-## Combine plot for all clocks by group ##########
-d_clock_long <- d %>% 
-  pivot_longer(cols = c("residuals_PhenoAge", "residuals_Hannum", "residuals_Horvath", "residuals_YingDamAge", "residuals_YingAdaptAge", "GrimAgeAccel"), names_to = "clock", values_to = "age_residual") %>% 
-  mutate(clock = ifelse(clock %in% c("GrimAgeAccel"), clock, sapply( str_split(clock, "_"), "[", 2 )))
-
-
-
-all_clock_plot <- ggplot(d_clock_long, aes(x = group_factor, y = age_residual, fill = group_factor)) +
-  facet_wrap(~clock) +
-  geom_violin(trim = FALSE, color = NA, alpha = 0.7) +
-  geom_jitter(width = 0.2, size = 2, alpha = 0.5) +
-  scale_fill_viridis_d() +
-  scale_color_viridis_d() +
-  labs(x = "", y = "Age Residual") +
-  theme_minimal(18) +
-  ## geom_text(aes(label = studyid), position = position_jitter(width = 0.2, height = 0), vjust = -0.7, size = 3)+ ## de-comment if you want to see studyids labelled
-  theme(legend.title = element_blank(),
-        axis.text.x = element_blank())
-
-all_clock_plot
-
-
-d_clock_long3 <- d %>% 
-  pivot_longer(cols = c("DunedinPACE",), names_to = "clock", values_to = "age_residual") 
-
-all_clock_plot3 <- ggplot(d_clock_long3, aes(x = group_factor, y = age_residual, fill = group_factor)) +
-  facet_wrap(~clock) +
-  geom_violin(trim = FALSE, color = NA, alpha = 0.7) +
-  geom_jitter(width = 0.2, size = 2, alpha = 0.5) +
-  scale_fill_viridis_d() +
-  scale_color_viridis_d() +
-  labs(x = "", y = "Pace of aging") +
-  theme_minimal(18) +
-  ## geom_text(aes(label = studyid), position = position_jitter(width = 0.2, height = 0), vjust = -0.7, size = 3)+ ## de-comment if you want to see studyids labelled
-  theme(legend.title = element_blank(),
-        axis.text.x = element_blank())
-
-all_clock_plot3
-
-
-### Epigenetic age prediction overlapping density plot ######
-
-
-mean_realAge <- mean(d$realAge)
-
-mean(d$realAge)
-sd(d$realAge)
-
-clock_density <- ggplot(d, aes(x = mAge_Hovath, fill = "Horvath Clock")) +
-  geom_density(alpha = 0.5) +
-  geom_density(aes(x = mAge_Hannum, fill = "Hannum"), alpha = 0.5) +
-  geom_density(aes(x = PhenoAge, fill = "PhenoAge"), alpha = 0.5) +
-  geom_density(aes(x = YingAdaptAge, fill = "YingAdaptAge"), alpha = 0.5) +
-  geom_density(aes(x = YingDamAge, fill = "YingDamAge"), alpha = 0.5) +
-  geom_vline(xintercept = mean_realAge, linetype = "solid", color = "black", linewidth = 1) + 
-  annotate("text", x = 30, y = 0.2, label = "Chronological Age (mean = 24.12, sd = .10)", vjust = -1, color = "black") + 
-  labs(title = "Predicted Epigenetic Ages of Study Participants",
-       x = "Predicted Age",
-       y = "Density",
-       fill = "Clock Type") +
-  scale_fill_manual(values = c("Horvath" = "blue", "Hannum" = "green",  "PhenoAge" = "red", "YingAdaptAge" = "cyan", "YingDamAge" = "purple" )) +
-  theme_minimal()
-
-clock_density
-
-
-#### Pairs plot for clock correlations with each other 
-library(GGally)
-clocks <- data.frame(Hannum = d$mAge_Hannum, Horvath = d$mAge_Hovath, PhenoAge = d$PhenoAge, YingAdaptAge = d$YingAdaptAge, YingDamAge = d$YingDamAge, GrimAgeAccel =d$grim, DunedinPACE=d$dunedin)  
-ggpairs(clocks, title="Correlations between  Epigenetic Clocks") 
-
-round(cor(clocks), 3)
-
-
-
-
-
-## Immune Linear models: MLR, NLR, and PC1 #################################
-# 
-# mlr1 <- lm(mlr ~ group_factor + bio_sex, data = d)
-# mlr2 <- lm(mlr ~ group_factor+ ace_total + bio_sex, data = d)
-# 
-# summary(mlr1)
-# summary(mlr2)
-# 
-# ## remove outliers
-# 
-# 
-# remove_outliers <- function(d, z_threshold = 3) {
-#   d %>%
-#     mutate(z_score_mlr = abs(scale(mlr))) %>%
-#     filter(z_score_mlr <= z_threshold) %>%
-#     select(-z_score_mlr)
-# }
-# 
-# # Remove outliers from the data using the function
-# data_no_outliers <- remove_outliers(d)
-# 
-# mlr1.1 <- lm(mlr ~ group_factor + bio_sex, data = data_no_outliers)
-# mlr2.1 <- lm(mlr ~ group_factor+ ace_total + bio_sex, data = data_no_outliers)
-# 
-# summary(mlr1.1)
-# summary(mlr2.1)
-# 
-# 
-# nlr1 <- lm(nlr ~ group_factor + bio_sex, data = d)
-# nlr2 <- lm(nlr ~ group_factor + ace_total + bio_sex, data = d)
-# 
-# summary(nlr1)
-# summary(nlr2)
-# 
-# remove_outliers <- function(d, z_threshold = 3) {
-#   d %>%
-#     mutate(z_score_nlr = abs(scale(nlr))) %>%
-#     filter(z_score_nlr <= z_threshold) %>%
-#     select(-z_score_nlr)
-# }
-# 
-# # Remove outliers from the data using the function
-# data_no_outliers <- remove_outliers(d)
-# 
-# nlr1.1 <- lm(nlr ~ group_factor + bio_sex, data = data_no_outliers)
-# nlr2.1 <- lm(nlr ~ group_factor+ ace_total + bio_sex, data = data_no_outliers)
-# 
-# summary(nlr1.1)
-# summary(nlr2.1)
-# 
-# pc1 <- lm(PC1 ~ group_factor +  bio_sex, data = d)
-# pc2 <- lm(PC1 ~ group_factor + ace_total+ bio_sex, data = d)
-# 
-# summary(pc1)
-# summary(pc2)
-# 
-# remove_outliers <- function(d, z_threshold = 3) {
-#   d %>%
-#     mutate(z_score_PC1 = abs(scale(PC1))) %>%
-#     filter(z_score_PC1 <= z_threshold) %>%
-#     select(-z_score_PC1)
-# }
-# 
-# # Remove outliers from the data using the function
-# data_no_outliers <- remove_outliers(d)
-# 
-# pc1.1 <- lm(PC1 ~ group_factor + bio_sex, data = data_no_outliers)
-# pc2.1 <- lm(PC1 ~ group_factor+ ace_total + bio_sex, data = data_no_outliers)
-# 
-# summary(pc1.1)
-# summary(pc2.1)
-# 
-# 
-# ## Save model outputs as tables in Word###########
-# 
-# ftmlr1 <- as_flextable(mlr1)
-# ftmlr2 <- as_flextable(mlr2)
-# ftnlr2 <- as_flextable(nlr2)
-# ftnlr1 <- as_flextable(nlr1)
-# ftpc1 <- as_flextable(pc1)  
-# ftpc2 <- as_flextable(pc2)
-# 
-# save_as_docx(
-#   `Monocyte-Lymphocyte Ratio Model 1` = ftmlr1, `Monocyte-Lymphocyte Ratio Model 2` = ftmlr2, `Neutrophil-Lymphocyte Ratio Model 1` = ftnlr1,`Neutrophil-Lymphocyte Ratio Model 2` = ftnlr2,`Immune PC1 Model 1` = ftpc1, `Immune PC1 Model 2` = ftpc2, path ="figures_tables/ImmuneModelv2.docx")
-# 
-# 
-# 
 
 
 ## Epigenetic aging by group linear models#######################
@@ -548,16 +55,7 @@ Grim1 <- lm(grim~ group_factor + bio_sex+PC1, data = d)
 Grim2 <- lm(grim ~ ace_total + group_factor + bio_sex+PC1, data = d)
 
 
-
-# Print the summary of the model
-summary(Horvath1)
-summary(Horvath2)
-summary(Hannum1)
-summary(Hannum2)
-summary(Pheno1)
-summary(Pheno2)
-
-
+## Save as table
 
 ft1 <- as_flextable(Horvath1)
 ft2 <- as_flextable(Horvath2)
@@ -566,27 +64,9 @@ ft4 <- as_flextable(Hannum2)
 ft5 <- as_flextable(Pheno1)
 ft6 <- as_flextable(Pheno2)
 
-
-
 save_as_docx(
   `Horvath Model 1` = ft1, `Horvath Model 2` = ft2,`Hannum Model 1` = ft3, `Hannum Model 2` = ft4,`PhenoAge Model 1` = ft5, `PhenoAge Model 2` = ft6,
   path ="figures_tables/First_gen_clock_models.docx")
-
-
-
-summary(YingAdaptAge1) ## both exposure groups negatively associated
-summary(YingAdaptAge2) ## both exposure groups negatively associated
-summary(YingDamAge1) ## both exposure groups positively associated
-summary(YingDamAge2) ## both groups positively associated
-summary(Dunedin1) ## doubly exposed groups positively associated
-summary(Dunedin2) ## no groups associated
-summary(Grim1)## doubly exposed positively associated
-summary(Grim2) ## no groups associated
-
-
-
-
-
 
   ft1 <- as_flextable(YingDamAge1)
   ft2 <- as_flextable(YingDamAge2)
@@ -603,8 +83,227 @@ summary(Grim2) ## no groups associated
     `DunedinPACE Model 1` = ft7, `DunedinPACE Model 2` = ft8,
     path ="figures_tables/second_gen_models.docx")
 
+  
+  ##Calculate standardized mean difference and plot across clocks and exposure groups
+  
+  ##Unadjusted
+  
+  library(broom)
+tidyHorvath1 <- tidy(Horvath1)
+tidy_Horvath1single_exposed <- tidyHorvath1 %>%
+    filter(term == "group_factorSingle Exposed")
+tidyHannum1 <- tidy(Hannum1)
+tidy_Hannum1single_exposed <- tidyHannum1 %>%
+  filter(term == "group_factorSingle Exposed")
+tidyPheno1 <- tidy(Pheno1)
+tidy_Pheno1single_exposed <- tidyPheno1 %>%
+  filter(term == "group_factorSingle Exposed")
+tidyGrim1 <- tidy(Grim1)
+tidy_Grim1single_exposed <- tidyGrim1 %>%
+  filter(term == "group_factorSingle Exposed")
+tidyDunedin1 <- tidy(Dunedin1)
+tidy_Dunedin1single_exposed <- tidyDunedin1 %>%
+  filter(term == "group_factorSingle Exposed")
+tidyDamage1 <- tidy(YingDamAge1)
+tidy_Damage1single_exposed <- tidyDamage1 %>%
+  filter(term == "group_factorSingle Exposed")
+tidyAdaptage1 <- tidy(YingAdaptAge1)
+tidy_Adaptage1single_exposed <- tidyAdaptage1 %>%
+  filter(term == "group_factorSingle Exposed")
+tidy_Horvath1double_exposed <- tidyHorvath1 %>%
+  filter(term == "group_factorDouble Exposed")
+tidy_Hannum1double_exposed <- tidyHannum1 %>%
+  filter(term == "group_factorDouble Exposed")
+tidy_Pheno1double_exposed <- tidyPheno1 %>%
+  filter(term == "group_factorDouble Exposed")
+tidy_Grim1double_exposed <- tidyGrim1 %>%
+  filter(term == "group_factorDouble Exposed")
+tidy_Dunedin1double_exposed <- tidyDunedin1 %>%
+  filter(term == "group_factorDouble Exposed")
+tidy_Damage1double_exposed <- tidyDamage1 %>%
+  filter(term == "group_factorDouble Exposed")
+tidy_Adaptage1double_exposed <- tidyAdaptage1 %>%
+  filter(term == "group_factorDouble Exposed")
+  
+combined_tidy <- bind_rows(
+  mutate(tidy_Horvath1single_exposed, model = "Horvath1"),
+  mutate(tidy_Horvath1double_exposed, model = "Horvath1"),
+  mutate(tidy_Hannum1single_exposed, model = "Hannum1"),
+  mutate(tidy_Hannum1double_exposed, model = "Hannum1"),
+  mutate(tidy_Pheno1single_exposed, model = "Pheno1"),
+  mutate(tidy_Pheno1double_exposed, model = "Pheno1"),
+  mutate(tidy_Grim1single_exposed, model = "Grim1"),
+  mutate(tidy_Grim1double_exposed, model = "Grim1"),
+  mutate(tidy_Dunedin1single_exposed, model = "Dunedin1"),
+  mutate(tidy_Dunedin1double_exposed, model = "Dunedin1"),
+  mutate(tidy_Damage1single_exposed, model = "YingDamAge1"),
+  mutate(tidy_Damage1double_exposed, model = "YingDamAge1"),
+  mutate(tidy_Adaptage1single_exposed, model = "YingAdaptAge1"),
+  mutate(tidy_Adaptage1double_exposed, model = "YingAdaptAge1")
+)
 
- # Take a look at model performance (not great)
+
+d_sd <- data.frame(
+  sd = c(
+    sd(d$residuals_dunedin), sd(d$residuals_Hannum), sd(d$residuals_Horvath), sd(d$residuals_PhenoAge), sd(d$residuals_YingAdaptAge), sd(d$residuals_YingDamAge), sd(d$grim)
+  ),
+  
+  model = c(
+    "Dunedin1", "Hannum1", "Horvath1", "Pheno1", "YingAdaptAge1", "YingDamAge1", "Grim1"
+  )
+)
+
+d_combined <- left_join(combined_tidy, d_sd)
+
+library(viridis)
+
+d_combined$model_2 <- substr(d_combined$model, 1, nchar(d_combined$model)-1)
+d_combined$model_2 <- factor(d_combined$model_2, levels = c("Horvath", "Hannum", "Pheno", "Grim", "Dunedin", "YingAdaptAge", "YingDamAge"))
+
+d_combined$term2 <- substr(d_combined$term, nchar("group_factor")+1, nchar(d_combined$term))
+
+# make effect size dataset
+d_combined_export1 <- d_combined %>% 
+  group_by(model_2, term2) %>% 
+  mutate(
+    std_mean_diff = estimate/sd,
+    lower_95_CI = (estimate - std.error*1.96)/sd,
+    upper_95_CI = (estimate + std.error*1.96)/sd
+  )
+
+
+p_noadj <- ggplot(d_combined_export1, aes(x = estimate/sd, y = model_2, color = model_2)) +
+  facet_wrap(~fct_rev(term2)) +
+  geom_point(position = position_dodge(width = 0.3), size = 3) +  
+  geom_errorbarh(aes(xmin = (estimate - std.error*1.96)/sd, xmax = (estimate + std.error*1.96)/sd),
+                 position = position_dodge(width = 0.3), height = 0) +  
+  geom_vline(xintercept = 0, linetype = "dashed", color = "indianred") +
+  labs(title = "Model 1",
+       x = "Standardized Mean Difference",
+       y = "") +
+  scale_color_viridis_d(option = "viridis", begin = 0, end = 1) +
+  theme_minimal(base_size = 14) +
+  theme(plot.margin = margin(10, 50, 10, 10), legend.title = element_blank(), legend.position = "none", panel.spacing = unit(2, "lines")) +
+  scale_x_continuous(breaks = c(-1, 0, 1)) 
+
+p_noadj
+
+# export the estimates
+write_csv(d_combined_export1 %>% select(model_2, term2, std_mean_diff, lower_95_CI, upper_95_CI), file = "effect_sizes_unadjusted.csv")
+
+
+table(d_combined$estimate/d_combined$sd)
+
+##Adjusted
+
+tidyHorvath2 <- tidy(Horvath2)
+tidy_Horvath2single_exposed <- tidyHorvath2 %>%
+  filter(term == "group_factorSingle Exposed")
+tidyHannum2 <- tidy(Hannum2)
+tidy_Hannum2single_exposed <- tidyHannum2 %>%
+  filter(term == "group_factorSingle Exposed")
+tidyPheno2 <- tidy(Pheno2)
+tidy_Pheno2single_exposed <- tidyPheno2 %>%
+  filter(term == "group_factorSingle Exposed")
+tidyGrim2 <- tidy(Grim2)
+tidy_Grim2single_exposed <- tidyGrim2 %>%
+  filter(term == "group_factorSingle Exposed")
+tidyDunedin2 <- tidy(Dunedin2)
+tidy_Dunedin2single_exposed <- tidyDunedin2 %>%
+  filter(term == "group_factorSingle Exposed")
+tidyDamage2 <- tidy(YingDamAge2)
+tidy_Damage2single_exposed <- tidyDamage2 %>%
+  filter(term == "group_factorSingle Exposed")
+tidyAdaptage2 <- tidy(YingAdaptAge2)
+tidy_Adaptage2single_exposed <- tidyAdaptage2 %>%
+  filter(term == "group_factorSingle Exposed")
+tidy_Horvath2double_exposed <- tidyHorvath2 %>%
+  filter(term == "group_factorDouble Exposed")
+tidy_Hannum2double_exposed <- tidyHannum2 %>%
+  filter(term == "group_factorDouble Exposed")
+tidy_Pheno2double_exposed <- tidyPheno2 %>%
+  filter(term == "group_factorDouble Exposed")
+tidy_Grim2double_exposed <- tidyGrim2 %>%
+  filter(term == "group_factorDouble Exposed")
+tidy_Dunedin2double_exposed <- tidyDunedin2 %>%
+  filter(term == "group_factorDouble Exposed")
+tidy_Damage2double_exposed <- tidyDamage2 %>%
+  filter(term == "group_factorDouble Exposed")
+tidy_Adaptage2double_exposed <- tidyAdaptage2 %>%
+  filter(term == "group_factorDouble Exposed")
+
+combined_tidy2 <- bind_rows(
+  mutate(tidy_Horvath2single_exposed, model = "Horvath2"),
+  mutate(tidy_Horvath2double_exposed, model = "Horvath2"),
+  mutate(tidy_Hannum2single_exposed, model = "Hannum2"),
+  mutate(tidy_Hannum2double_exposed, model = "Hannum2"),
+  mutate(tidy_Pheno2single_exposed, model = "Pheno2"),
+  mutate(tidy_Pheno2double_exposed, model = "Pheno2"),
+  mutate(tidy_Grim2single_exposed, model = "Grim2"),
+  mutate(tidy_Grim2double_exposed, model = "Grim2"),
+  mutate(tidy_Dunedin2single_exposed, model = "Dunedin2"),
+  mutate(tidy_Dunedin2double_exposed, model = "Dunedin2"),
+  mutate(tidy_Damage2single_exposed, model = "YingDamAge2"),
+  mutate(tidy_Damage2double_exposed, model = "YingDamAge2"),
+  mutate(tidy_Adaptage2single_exposed, model = "YingAdaptAge2"),
+  mutate(tidy_Adaptage2double_exposed, model = "YingAdaptAge2")
+)
+
+
+d_sd <- data.frame(
+  sd = c(
+    sd(d$residuals_dunedin), sd(d$residuals_Hannum), sd(d$residuals_Horvath), sd(d$residuals_PhenoAge), sd(d$residuals_YingAdaptAge), sd(d$residuals_YingDamAge), sd(d$grim)
+  ),
+  
+  model = c(
+    "Dunedin2", "Hannum2", "Horvath2", "Pheno2", "YingAdaptAge2", "YingDamAge2", "Grim2"
+  )
+)
+
+d_combined2 <- left_join(combined_tidy2, d_sd)
+
+library(viridis)
+
+
+d_combined2$model_2 <- substr(d_combined2$model, 1, nchar(d_combined2$model)-1)
+d_combined2$model_2 <- factor(d_combined2$model_2, levels = c("Horvath", "Hannum", "Pheno", "Grim", "Dunedin", "YingAdaptAge", "YingDamAge"))
+
+d_combined2$term2 <- substr(d_combined$term, nchar("group_factor")+1, nchar(d_combined$term))
+
+# make effect size dataset
+d_combined_export2 <- d_combined2 %>% 
+  group_by(model_2, term2) %>% 
+  mutate(
+    std_mean_diff = estimate/sd,
+    lower_95_CI = (estimate - std.error*1.96)/sd,
+    upper_95_CI = (estimate + std.error*1.96)/sd
+    )
+
+p_adj <- ggplot(d_combined_export2, aes(x = std_mean_diff, y = model_2, color = model_2)) +
+  facet_wrap(~fct_rev(term2)) +
+  geom_point(position = position_dodge(width = 0.3), size = 3) +  
+  geom_errorbarh(aes(xmin = lower_95_CI, xmax = upper_95_CI),
+                 position = position_dodge(width = 0.3), height = 0) +  # 
+  geom_vline(xintercept = 0, linetype = "dashed", color = "indianred") +
+  labs(title = "Model 2",
+       x = "Standardized Mean Difference",
+       y = "") +
+  scale_color_viridis_d(option = "viridis", begin = 0, end = 1) +
+  theme_minimal(base_size = 14) +
+  theme(plot.margin = margin(10, 50, 10, 10), legend.title = element_blank(), legend.position = "none", panel.spacing = unit(2, "lines", ))  
+
+# export the estimates
+write_csv(d_combined_export2 %>% select(model_2, term2, std_mean_diff, lower_95_CI, upper_95_CI), file = "effect_sizes_adjusted.csv")
+
+
+
+# compose the two plots together
+library(patchwork)
+p_noadj + p_adj
+
+
+ # Take a look at model performance 
+
 library(performance)
 
 check_model(YingAdaptAge1)
@@ -614,190 +313,6 @@ check_model(YingDamAge2)
 check_model(Grim1)
 check_model(Dunedin1)
 
-
-##Diagnostic plots##
-
-influence_values <- influence.measures(YingDamAge2)
-
-# Extract Cook's distance values
-cook_values <- influence_values$infmat[, "CookD"]
-
-# Calculate threshold for Cook's distance
-threshold <- 4/91
-
-# Identify influential observations
-influential_points <- which(abs(cook_values) > threshold)
-
-# Print indices of influential points
-print(influential_points)
-residuals <- residuals(YingDamAge1)
-
-# Create a QQ plot of the residuals
-qqnorm(residuals, main= "YingDamAge1 QQ plot")
-qqline(residuals)
-
-vif(YingDamAge1)
-
-fitted.values <- fitted(YingDamAge1)
-
-# Create a plot of residuals vs. fitted values
-plot(fitted.values, residuals,
-     xlab = "Fitted values",
-     ylab = "Residuals",
-     main = "Residuals vs. Fitted Values YingDamage1")
-abline(h = 0, col = "red")  # Add a horizontal line at y = 0
-
-
-residuals <- residuals(YingDamAge2)
-
-# Create a QQ plot of the residuals
-qqnorm(residuals, main= "YingDamAge1 QQ plot")
-qqline(residuals)
-
-vif(YingDamAge1)
-
-fitted.values <- fitted(YingDamAge2)
-
-# Create a plot of residuals vs. fitted values
-plot(fitted.values, residuals,
-     xlab = "Fitted values",
-     ylab = "Residuals",
-     main = "Residuals vs. Fitted Values YingDamage2")
-abline(h = 0, col = "red")  # Add a horizontal line at y = 0
-
-
-residuals <- residuals(YingAdaptAge1)
-
-# Create a QQ plot of the residuals
-qqnorm(residuals, main= "YingAdaptAge1 QQ plot")
-qqline(residuals)
-
-vif(YingAdaptAge1)
-
-fitted.values <- fitted(YingAdaptAge1)
-
-# Create a plot of residuals vs. fitted values
-plot(fitted.values, residuals,
-     xlab = "Fitted values",
-     ylab = "Residuals",
-     main = "Residuals vs. Fitted Values YingAdaptAge1")
-abline(h = 0, col = "red")  # Add a horizontal line at y = 0
-
-
-residuals <- residuals(YingAdaptAge2)
-
-# Create a QQ plot of the residuals
-qqnorm(residuals, main= "YingAdaptAge2 QQ plot")
-qqline(residuals)
-
-vif(YingAdaptAge2)
-
-fitted.values <- fitted(YingAdaptAge2)
-
-# Create a plot of residuals vs. fitted values
-plot(fitted.values, residuals,
-     xlab = "Fitted values",
-     ylab = "Residuals",
-     main = "Residuals vs. Fitted Values YingAdaptAge1")
-abline(h = 0, col = "red")  # Add a horizontal line at y = 0
-
-residuals <- residuals(Dunedin1)
-
-# Create a QQ plot of the residuals
-qqnorm(residuals, main= "Dunedin Model1 QQ plot")
-qqline(residuals)
-
-vif(Dunedin1)
-
-fitted.values <- fitted(Dunedin1)
-
-# Create a plot of residuals vs. fitted values
-plot(fitted.values, residuals,
-     xlab = "Fitted values",
-     ylab = "Residuals",
-     main = "Residuals vs. Fitted Values Dunedin Model 1")
-abline(h = 0, col = "red")  # Add a horizontal line at y = 0
-
-residuals <- residuals(Dunedin2)
-
-# Create a QQ plot of the residuals
-qqnorm(residuals, main= "Dunedin Model2 QQ plot")
-qqline(residuals)
-
-vif(Dunedin2)
-
-fitted.values <- fitted(Dunedin2)
-
-# Create a plot of residuals vs. fitted values
-plot(fitted.values, residuals,
-     xlab = "Fitted values",
-     ylab = "Residuals",
-     main = "Residuals vs. Fitted Values Dunedin Model 2")
-abline(h = 0, col = "red")  # Add a horizontal line at y = 0
-
-
-residuals <- residuals(Grim1)
-
-# Create a QQ plot of the residuals
-qqnorm(residuals, main= "Grim Model 1 QQ plot")
-qqline(residuals)
-
-vif(Grim1)
-
-fitted.values <- fitted(Grim1)
-
-# Create a plot of residuals vs. fitted values
-plot(fitted.values, residuals,
-     xlab = "Fitted values",
-     ylab = "Residuals",
-     main = "Residuals vs. Fitted Values Grim Model 1")
-abline(h = 0, col = "red")  # Add a horizontal line at y = 0
-
-
-
-residuals <- residuals(Grim2)
-
-# Create a QQ plot of the residuals
-qqnorm(residuals, main= "Grim Model 2 QQ plot")
-qqline(residuals)
-
-vif(Grim2)
-
-fitted.values <- fitted(Grim2)
-
-# Create a plot of residuals vs. fitted values
-plot(fitted.values, residuals,
-     xlab = "Fitted values",
-     ylab = "Residuals",
-     main = "Residuals vs. Fitted Values Grim Model 2")
-abline(h = 0, col = "red")  # Add a horizontal line at y = 0
-
-
-library(ggfortify)
-autoplot(YingDamAge2, which = 5) + 
-  geom_hline(yintercept = 2*length(coef(YingDamAge2))/n, color = "red", linetype = "dashed") +
-  labs(title = "Leverage Plot",
-       x = "Observation Sequence",
-       y = "Leverage Value",
-       caption = "Red dashed line indicates the threshold (2p/n)") +
-  theme_minimal()
-
-## save as Word tables ###
-
-  ft1 <- as_flextable(YingDamAge1)
-  ft2 <- as_flextable(YingDamAge2)
-  ft3 <- as_flextable(YingAdaptAge1)
-  ft4 <- as_flextable(YingAdaptAge2)
-  ft5 <- as_flextable(Grim1)
-  ft6 <- as_flextable(Dunedin1)
-  ft7 <- as_flextable(Grim2)  
-  ft8 <- as_flextable(Dunedin2)
-  
-  
-  save_as_docx(
-    `YingDamAge  Model 1` = ft1, `YingDamAge Model 2` = ft2,`YingAdaptAge Model 1` = ft3, `YingAdaptAge Model 2` = ft4,`DunedinPACE Model 1` = ft5, `GrimAge Model 1` = ft6,
-    `DunedinPACE Model 2` = ft7, `GrimAge Model 2` = ft8,
-    path ="figures_tables/ClockModelv4.docx")
 
   
   ##sensitivity analysis for Hannum outliers
@@ -821,4 +336,109 @@ autoplot(YingDamAge2, which = 5) +
 
   
   write.csv(d, file ="d.csv")
+  
+  
+  
+  #Supplementary plots: Immune cell pca
+  
+  res.pca <- prcomp(subset_vars, scale = F)
+  fviz_eig(res.pca)
+  
+  fviz_pca_var(res.pca,
+               col.var = "contrib", # Color by contributions to the PC
+               gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+               title = "Immune Cell Principle Components Analysis",
+               repel = TRUE     # Avoid text overlapping
+  )
+  
+  
+  
+  
+  fviz_pca_ind(res.pca,
+               col.ind = "cos2", # Color by the quality of representation
+               gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+               repel = TRUE     # Avoid text overlapping
+  )
+  
+  
+  #########Descriptive plots ##################
+  
+  ##ACEs by exposure group ###################
+  
+  shapiro.test(d$ace_total)## quick test to see if they are normally distributed between groups, they're not.
+  
+  ## Descriptive distribution plot for all clocks by group ##########
+  d_clock_long <- d %>% 
+    pivot_longer(cols = c("residuals_PhenoAge", "residuals_Hannum", "residuals_Horvath", "residuals_YingDamAge", "residuals_YingAdaptAge", "grim", residuals_dunedin), names_to = "clock", values_to = "age_residual") %>% 
+    mutate(clock = ifelse(clock %in% c("grim"), clock, sapply( str_split(clock, "_"), "[", 2 )))
+  
+
+  
+  all_clock_plot <- ggplot(d_clock_long, aes(x = group_factor, y = age_residual, fill = group_factor)) +
+    facet_wrap(~clock) +
+    geom_violin(trim = FALSE, color = NA, alpha = 0.7) +
+    geom_jitter(width = 0.2, size = 2, alpha = 0.5) +
+    scale_fill_viridis_d() +
+    scale_color_viridis_d() +
+    labs(x = "", y = "Age Residual") +
+    theme_minimal(18) +
+    ## geom_text(aes(label = studyid), position = position_jitter(width = 0.2, height = 0), vjust = -0.7, size = 3)+ ## de-comment if you want to see studyids labelled
+    theme(legend.title = element_blank(),
+          axis.text.x = element_blank())
+  
+  all_clock_plot
+  
+  
+  d_clock_long3 <- d %>% 
+    pivot_longer(cols = c("DunedinPACE",), names_to = "clock", values_to = "age_residual") 
+  
+  #Make a separate one for Dunedin because its range is much smaller
+  dunedin_plot <- ggplot(d_clock_long3, aes(x = group_factor, y = age_residual, fill = group_factor)) +
+    facet_wrap(~clock) +
+    geom_violin(trim = FALSE, color = NA, alpha = 0.7) +
+    geom_jitter(width = 0.2, size = 2, alpha = 0.5) +
+    scale_fill_viridis_d() +
+    scale_color_viridis_d() +
+    labs(x = "", y = "Pace of aging") +
+    theme_minimal(18) +
+    ## geom_text(aes(label = studyid), position = position_jitter(width = 0.2, height = 0), vjust = -0.7, size = 3)+ ## de-comment if you want to see studyids labelled
+    theme(legend.title = element_blank(),
+          axis.text.x = element_blank())
+  
+dunedin_plot
+  
+  ### Epigenetic age prediction overlapping density plot ######
+  
+  mean_realAge <- mean(d$realAge)
+  
+  mean(d$realAge)
+  sd(d$realAge)
+  
+  clock_density <- ggplot(d, aes(x = residuals_Horvath, fill = "Horvath")) +
+    geom_density(alpha = 0.5) +
+    geom_density(aes(x = residuals_Hannum, fill = "Hannum"), alpha = 0.5) +
+    geom_density(aes(x = residuals_PhenoAge, fill = "PhenoAge"), alpha = 0.5) +
+    geom_density(aes(x = residuals_YingAdaptAge, fill = "YingAdaptAge"), alpha = 0.5) +
+    geom_density(aes(x = residuals_YingDamAge, fill = "YingDamAge"), alpha = 0.5) +
+    geom_density(aes(x = residuals_dunedin, fill = "Dunedin Pace"), alpha = 0.5) +
+    annotate("text", x = 30, y = 0.2, label = "Chronological Age (mean = 24.12, sd = .10)", vjust = -1, color = "black") + 
+    labs(title = "Age residuals",
+         x = "Predicted Age",
+         y = "Density",
+         fill = "Clock Type") +
+    scale_fill_manual(values = c("Horvath" = "blue", "Hannum" = "green",  "PhenoAge" = "red", "YingAdaptAge" = "cyan", "YingDamAge" = "purple" )) +
+    theme_minimal()
+  
+  clock_density
+  
+  
+  #### Pairs plot for clock correlations with each other 
+  library(GGally)
+  clocks <- data.frame(Hannum = d$mAge_Hannum, Horvath = d$mAge_Hovath, PhenoAge = d$PhenoAge, YingAdaptAge = d$YingAdaptAge, YingDamAge = d$YingDamAge, GrimAgeAccel =d$grim, DunedinPACE=d$dunedin)  
+  ggpairs(clocks, title="Correlations between  Epigenetic Clocks") 
+  
+  round(cor(clocks), 3)
+  
+
+
   
