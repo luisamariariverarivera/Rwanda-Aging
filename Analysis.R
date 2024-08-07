@@ -335,8 +335,6 @@ check_model(Dunedin1)
   summary(Hannum2.1)
 
   
-  write.csv(d, file ="d.csv")
-  
   
   
   #Supplementary plots: Immune cell pca
@@ -439,6 +437,118 @@ dunedin_plot
   
   round(cor(clocks), 3)
   
+## scatterplot
+  
+  
+  correlation <- cor.test(d$PhenoAge, d$Age)
+  cor_value <- correlation$estimate
+  p_value <- correlation$p.value
+  formatted_p_value <- ifelse(p_value < 0.001, "< 0.001", format(round(p_value, 3)))
+  
+
+  ggplot(d, aes(x = Age, y = PhenoAge)) +
+    geom_point() +
+    geom_smooth(method = "lm", se = FALSE, color = "blue") +
+    labs(title = "",
+         x = "Chronological Age",
+         y = "PhenoAge",
+         caption = paste("Correlation:", round(cor_value, 2), "| p-value:", formatted_p_value)) +
+    theme_minimal()
+  
+  
+  correlation <- cor.test(d$PhenoAge, d$Age)
+  cor_value <- correlation$estimate
+  p_value <- correlation$p.value
+  formatted_p_value <- ifelse(p_value < 0.001, "< 0.001", format(round(p_value, 3)))
+  
+  
+ phenocor <-  ggplot(d, aes(x = Age, y = PhenoAge)) +
+    geom_point() +
+    geom_smooth(method = "lm", se = FALSE, color = "blue") +
+    labs(title = "",
+         x = "Chronological Age",
+         y = "PhenoAge",
+         caption = paste("Correlation:", round(cor_value, 2), "| p-value:", formatted_p_value)) +
+    theme_minimal()
+  
+ 
+ 
+ correlation <- cor.test(d$mAge_Hannum, d$Age)
+ cor_value <- correlation$estimate
+ p_value <- correlation$p.value
+ formatted_p_value <- ifelse(p_value < 0.001, "< 0.001", format(round(p_value, 3)))
+ 
+hannumcor <-  ggplot(d, aes(x = Age, y = mAge_Hannum)) +
+   geom_point() +
+   geom_smooth(method = "lm", se = FALSE, color = "red") +
+   labs(title = "",
+        x = "Chronological Age",
+        y = "Hannum Age",
+        caption = paste("Correlation:", round(cor_value, 2), "| p-value:", formatted_p_value)) +
+   theme_minimal()
 
 
+ 
+correlation <- cor.test(d$mAge_Hovath, d$Age)
+cor_value <- correlation$estimate
+p_value <- correlation$p.value
+formatted_p_value <- ifelse(p_value < 0.001, "< 0.001", format(round(p_value, 3)))
+
+horvathcor <-  ggplot(d, aes(x = Age, y = mAge_Hovath)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, color = "darkgreen") +
+  labs(title = "",
+       x = "Chronological Age",
+       y = "Horvath Age",
+       caption = paste("Correlation:", round(cor_value, 2), "| p-value:", formatted_p_value)) +
+  theme_minimal()
+
+horvathcor
+
+library(patchwork)
+firstcor <- horvathcor+hannumcor+phenocor
+
+print(firstcor)
+
+
+
+correlation <- cor.test(d$YingAdaptAge, d$Age)
+cor_value <- correlation$estimate
+p_value <- correlation$p.value
+formatted_p_value <- ifelse(p_value < 0.001, "< 0.001", format(round(p_value, 3)))
+
+
+adaptcor <- ggplot(d, aes(x = Age, y = YingAdaptAge)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, color = "lightgreen") +
+  labs(title = "",
+       x = "Chronological Age",
+       y = "YingAdaptAge",
+       caption = paste("Correlation:", round(cor_value, 2), "| p-value:", formatted_p_value)) +
+  theme_minimal()
+
+
+correlation <- cor.test(d$YingDamAge, d$Age)
+cor_value <- correlation$estimate
+p_value <- correlation$p.value
+formatted_p_value <- ifelse(p_value < 0.001, "< 0.001", format(round(p_value, 3)))
+
+
+damagecor <-  ggplot(d, aes(x = Age, y = YingDamAge)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, color = "lightblue") +
+  labs(title = "",
+       x = "Chronological Age",
+       y = "YingDamAge",
+       caption = paste("Correlation:", round(cor_value, 2), "| p-value:", formatted_p_value)) +
+  theme_minimal()
+
+
+library(patchwork)
+secondcor <- damagecor+adaptcor
+
+print(secondcor)
+
+allcor <- firstcor+secondcor
+print(allcor)
   
