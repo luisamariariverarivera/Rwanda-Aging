@@ -1,13 +1,22 @@
 
-
+library(GGally)
 library(tidyverse)
 library(tidyr)
 library(table1)
 library(performance)
 library(dplyr)
 library(flextable)
+library(broom)
+library (viridis)
+library(factoextra)
 
 d <- read.csv("data_raw/d.csv")
+
+##reorder factor so control is the reference
+d$group_factor <- factor(d$group, 
+                         levels = c("Non exposed","Exposed to genocide","Exposed to genocide and rape"),
+                         labels = c("Control", "Single Exposed","Double Exposed"))
+
 
 # Create Table 1 Descriptive Statistics
 library(table1)
@@ -17,7 +26,7 @@ t1 <- table1(~ factor(bio_sex) + factor(factor_education) + factor(incomecategor
 ft1 <- t1flex(t1) %>% 
   save_as_docx(path="figures_tables/table1.docx")
 
-t2 <- table1(~ realAge+ mAge_Hovath + mAge_Hannum + PhenoAge + DunedinPACE + GrimAgeAccel + YingDamAge + YingAdaptAge | group_factor, data=d)
+t2 <- table1(~ realAge+ mAge_Hovath + mAge_Hannum + PhenoAge + dunedin + GrimAgeAccel + YingDamAge + YingAdaptAge | group_factor, data=d)
 
 table2 <- t1flex(t2) %>% 
   save_as_docx(path="figures_tables/clock_age_table.docx")
@@ -25,14 +34,8 @@ table2 <- t1flex(t2) %>%
 
 ## Epigenetic aging by group linear models#######################
 
-##reorder factor so control is the reference
-d$group_factor <- factor(d$group, 
-                         levels = c("Non exposed","Exposed to genocide","Exposed to genocide and rape"),
-                         labels = c("Control", "Single Exposed","Double Exposed"))
-
 Horvath1 <- lm(residuals_Horvath ~ group_factor + bio_sex +PC1, data = d)
 Horvath2 <- lm(residuals_Horvath ~ ace_total + group_factor + bio_sex+ PC1, data = d)
-
 
 Hannum1 <- lm(residuals_Hannum ~ group_factor + bio_sex+ PC1, data = d)
 Hannum2 <- lm(residuals_Hannum ~ ace_total + group_factor + bio_sex+PC1, data = d)
@@ -88,7 +91,6 @@ save_as_docx(
   
   ##Unadjusted
   
-  library(broom)
 tidyHorvath1 <- tidy(Horvath1)
 tidy_Horvath1single_exposed <- tidyHorvath1 %>%
     filter(term == "group_factorSingle Exposed")
@@ -155,8 +157,6 @@ d_sd <- data.frame(
 
 d_combined <- left_join(combined_tidy, d_sd)
 
-library(viridis)
-
 d_combined$model_2 <- substr(d_combined$model, 1, nchar(d_combined$model)-1)
 d_combined$model_2 <- factor(d_combined$model_2, levels = c("Horvath", "Hannum", "Pheno", "Grim", "Dunedin", "YingAdaptAge", "YingDamAge"))
 
@@ -194,7 +194,7 @@ write_csv(d_combined_export1 %>% select(model_2, term2, std_mean_diff, lower_95_
 
 table(d_combined$estimate/d_combined$sd)
 
-##Adjusted
+## Redo this all but now for the models adjusted for ACEs
 
 tidyHorvath2 <- tidy(Horvath2)
 tidy_Horvath2single_exposed <- tidyHorvath2 %>%
@@ -262,8 +262,6 @@ d_sd <- data.frame(
 
 d_combined2 <- left_join(combined_tidy2, d_sd)
 
-library(viridis)
-
 
 d_combined2$model_2 <- substr(d_combined2$model, 1, nchar(d_combined2$model)-1)
 d_combined2$model_2 <- factor(d_combined2$model_2, levels = c("Horvath", "Hannum", "Pheno", "Grim", "Dunedin", "YingAdaptAge", "YingDamAge"))
@@ -301,43 +299,9 @@ write_csv(d_combined_export2 %>% select(model_2, term2, std_mean_diff, lower_95_
 library(patchwork)
 p_noadj + p_adj
 
-
- # Take a look at model performance 
-
-library(performance)
-
-check_model(YingAdaptAge1)
-check_model(YingAdaptAge2)
-check_model(YingDamAge1)
-check_model(YingDamAge2)
-check_model(Grim1)
-check_model(Dunedin1)
-
-
+############Supplementary plots###############
   
-  ##sensitivity analysis for Hannum outliers
-  
-  remove_outliers <- function(d, z_threshold = 3) {
-    d %>%
-      mutate(z_score_residuals_Hannum = abs(scale(residuals_Hannum))) %>%
-      filter(z_score_residuals_Hannum <= z_threshold) %>%
-      select(-z_score_residuals_Hannum)
-  }
-  
-  
-  # Remove outliers from the data using the function
-  data_no_outliers <- remove_outliers(d)
-  
-  Hannum1.1 <- lm(residuals_Hannum ~ group_factor + bio_sex+ PC1, data = data_no_outliers)
-  Hannum2.1 <- lm(residuals_Hannum ~ ace_total + group_factor + bio_sex+PC1, data = data_no_outliers)
-  
-  summary(Hannum1.1)
-  summary(Hannum2.1)
-
-  
-  
-  
-  #Supplementary plots: Immune cell pca
+  ## Immune cell pca
   
   res.pca <- prcomp(subset_vars, scale = F)
   fviz_eig(res.pca)
@@ -350,16 +314,14 @@ check_model(Dunedin1)
   )
   
   
-  
+
   
   fviz_pca_ind(res.pca,
-               col.ind = "cos2", # Color by the quality of representation
+               col.ind = "cos2", 
                gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
-               repel = TRUE     # Avoid text overlapping
+               repel = TRUE     
   )
   
-  
-  #########Descriptive plots ##################
   
   ##ACEs by exposure group ###################
   
@@ -551,4 +513,29 @@ print(secondcor)
 
 allcor <- firstcor+secondcor
 print(allcor)
+
+
+
+#Immune cell pca visualization
+
+res.pca <- prcomp(subset_vars, scale = F)
+fviz_eig(res.pca)
+
+fviz_pca_var(res.pca,
+             col.var = "contrib", # Color by contributions to the PC
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             title = "Immune Cell Principle Components Analysis",
+             repel = TRUE     # Avoid text overlapping
+)
+
+
+
+
+fviz_pca_ind(res.pca,
+             col.ind = "cos2", # Color by the quality of representation
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             repel = TRUE     # Avoid text overlapping
+)
+
+
   
